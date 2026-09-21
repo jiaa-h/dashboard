@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marketing School Weekly Attendance Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #f5f5f5 0%, #efefef 100%);
+            padding: 2rem 1rem;
+            color: #333;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { margin-bottom: 2rem; }
+        .header h1 { font-size: 28px; margin-bottom: 0.5rem; color: #1f4e78; }
+        .header p { color: #666; font-size: 14px; }
+        .week-selector { display: flex; gap: 1rem; align-items: center; margin: 1rem 0; }
+        .week-selector input { padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+        .week-selector button { padding: 8px 16px; background: #1f4e78; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500; }
+        .week-selector button:hover { background: #173556; }
+        
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .metric-card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .metric-card.warning { background: #fff8e1; border-left: 4px solid #ffc107; }
+        .metric-card.danger { background: #ffebee; border-left: 4px solid #f44336; }
+        .metric-label { font-size: 12px; color: #999; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+        .metric-value { font-size: 32px; font-weight: 700; color: #1f4e78; margin: 0.5rem 0; }
+        .metric-card.warning .metric-value { color: #ff6f00; }
+        .metric-card.danger .metric-value { color: #d32f2f; }
+        .metric-note { font-size: 11px; color: #999; margin-top: 0.5rem; }
+        
+        .input-section { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 2rem; }
+        .input-section h2 { font-size: 18px; margin-bottom: 1.5rem; color: #1f4e78; }
+        .input-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem; }
+        .input-group { display: flex; flex-direction: column; }
+        .input-group label { font-size: 13px; font-weight: 600; color: #666; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        .input-group input { padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+        .input-group input:focus { outline: none; border-color: #1f4e78; box-shadow: 0 0 0 3px rgba(31, 78, 120, 0.1); }
+        
+        .button-group { display: flex; gap: 1rem; }
+        .btn { padding: 10px 20px; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+        .btn-primary { background: #1f4e78; color: white; }
+        .btn-primary:hover { background: #173556; }
+        .btn-secondary { background: #e0e0e0; color: #333; }
+        .btn-secondary:hover { background: #d0d0d0; }
+        .btn-danger { background: #f44336; color: white; }
+        .btn-danger:hover { background: #d32f2f; }
+        
+        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 2rem; margin-bottom: 2rem; }
+        .chart-container { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .chart-container h3 { font-size: 15px; font-weight: 600; color: #1f4e78; margin-bottom: 1rem; }
+        .chart-wrapper { position: relative; height: 250px; }
+        
+        .table-container { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 2rem; overflow-x: auto; }
+        .table-container h3 { font-size: 15px; font-weight: 600; color: #1f4e78; margin-bottom: 1rem; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { background: #f5f5f5; padding: 10px; text-align: left; font-weight: 600; color: #666; border-bottom: 1px solid #ddd; }
+        td { padding: 10px; border-bottom: 1px solid #eee; }
+        tr:hover { background: #fafafa; }
+        .status-best { color: #0ca30c; font-weight: 600; }
+        .status-worst { color: #d32f2f; font-weight: 600; }
+        .status-good { color: #1976d2; font-weight: 600; }
+        .status-warning { color: #ff6f00; font-weight: 600; }
+        
+        .insights-section { background: #f3e8e8; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #d32f2f; margin-bottom: 2rem; }
+        .insights-section h3 { color: #8b5a5a; font-size: 15px; font-weight: 600; margin-bottom: 1rem; }
+        .insight-item { margin-bottom: 1rem; font-size: 13px; color: #8b5a5a; }
+        .insight-item strong { display: block; margin-bottom: 0.25rem; }
+        
+        .message { padding: 12px 16px; border-radius: 4px; margin-bottom: 1rem; font-size: 13px; }
+        .message.success { background: #e8f5e9; color: #0ca30c; border-left: 4px solid #0ca30c; }
+        .message.error { background: #ffebee; color: #d32f2f; border-left: 4px solid #d32f2f; }
+        
+        .export-buttons { display: flex; gap: 1rem; margin-top: 1rem; }
+        .export-buttons button { padding: 8px 16px; font-size: 12px; }
+        
+        @media (max-width: 768px) {
+            .metrics-grid { grid-template-columns: 1fr 1fr; }
+            .charts-grid { grid-template-columns: 1fr; }
+            .input-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Marketing School Attendance Dashboard</h1>
+            <p>Track weekly RSVP → Attendance metrics. Updated every Friday.</p>
+        </div>
+        
+        <div class="week-selector">
+            <label>Week of:</label>
+            <input type="date" id="weekDate" required>
+            <button class="btn btn-secondary" onclick="loadWeek()">Load</button>
+            <button class="btn btn-secondary" onclick="loadLatestWeek()">Load This Week</button>
+        </div>
+        
+        <div id="message" class="message" style="display: none;"></div>
+        
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-label">Total RSVPs</div>
+                <div class="metric-value" id="totalRsvps">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Total Attended</div>
+                <div class="metric-value" id="totalAttended">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Total No-shows</div>
+                <div class="metric-value" id="totalNoshows">0</div>
+            </div>
+            <div class="metric-card warning">
+                <div class="metric-label">No-show Rate</div>
+                <div class="metric-value" id="avgNoshowPct">0%</div>
+                <div class="metric-note">Target: &lt;20%</div>
+            </div>
+        </div>
+        
+        <div class="input-section">
+            <h2>📝 Enter This Week's Data (Friday 4-5 PM)</h2>
+            <div id="sessionInputs"></div>
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="saveData()">💾 Save Data</button>
+                <button class="btn btn-secondary" onclick="resetForm()">🔄 Reset</button>
+                <button class="btn btn-secondary" onclick="exportToCSV()">📥 Export as CSV</button>
+            </div>
+        </div>
+        
+        <div class="charts-grid">
+            <div class="chart-container">
+                <h3>Attendance by Day</h3>
+                <div class="chart-wrapper">
+                    <canvas id="attendanceChart" role="img" aria-label="Bar chart showing daily attendance"></canvas>
+                </div>
+            </div>
+            <div class="chart-container">
+                <h3>No-show Rate by Day</h3>
+                <div class="chart-wrapper">
+                    <canvas id="noshowChart" role="img" aria-label="Line chart showing no-show percentage"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <div class="table-container">
+            <h3>📋 Session Details</h3>
+            <table id="sessionsTable">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Session</th>
+                        <th>Day</th>
+                        <th>RSVPs</th>
+                        <th>Attended</th>
+                        <th>No-shows</th>
+                        <th>No-show %</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+        
+        <div class="insights-section">
+            <h3>🎯 Key Insights & Recommendations</h3>
+            <div id="insights"></div>
+        </div>
+        
+        <div style="text-align: center; color: #999; font-size: 12px; margin-top: 2rem; padding: 2rem 0; border-top: 1px solid #ddd;">
+            <p>📧 <strong>Tip:</strong> Share this dashboard link with your team. Everyone can update data and see live metrics.</p>
+            <p>🔄 Auto-saves to browser storage • 📊 Charts update instantly • ↩️ Go back to view previous weeks</p>
+        </div>
+    </div>
+
+    <script>
+        const sessions = [
+            { date: '7', title: 'ADVANCED Part 1', day: 'Monday', time: '11 PM SGT' },
+            { date: '8', title: 'ADVANCED Part 2', day: 'Tuesday', time: '11 PM SGT' },
+            { date: '9', title: 'Threads: 10K Views', day: 'Wednesday', time: '11 PM SGT' },
+            { date: '10', title: 'AI Reputation', day: 'Thursday', time: '11 PM SGT' },
+            { date: '11a', title: 'Seedance 2.5 (30m)', day: 'Friday', time: '11 PM SGT' },
+            { date: '11b', title: 'Grok Bot (30m)', day: 'Friday', time: '11:30 PM SGT' }
+        ];
+
+        function getWeekOf(date) {
+            const d = new Date(date);
+            d.setHours(0, 0, 0, 0);
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            return new Date(d.setDate(diff)).toISOString().split('T')[0];
+        }
+
+        function loadLatestWeek() {
+            const today = new Date();
+            document.getElementById('weekDate').value = getWeekOf(today);
+            loadWeek();
+        }
+
+        function loadWeek() {
+            const weekDate = document.getElementById('weekDate').value;
+            if (!weekDate) {
+                showMessage('Please select a date', 'error');
+                return;
+            }
+            const data = JSON.parse(localStorage.getItem(`week_${weekDate}`) || '{}');
+            sessions.forEach((s, i) => {
+                document.getElementById(`rsvp_${i}`).value = data[`rsvp_${i}`] || '';
+                document.getElementById(`attended_${i}`).value = data[`attended_${i}`] || '';
+            });
+            updateDashboard();
+        }
+
+        function saveData() {
+            const weekDate = document.getElementById('weekDate').value;
+            if (!weekDate) {
+                showMessage('Please select a date', 'error');
+                return;
+            }
+            const data = {};
+            sessions.forEach((s, i) => {
+                data[`rsvp_${i}`] = parseInt(document.getElementById(`rsvp_${i}`).value) || 0;
+                data[`attended_${i}`] = parseInt(document.getElementById(`attended_${i}`).value) || 0;
+            });
+            localStorage.setItem(`week_${weekDate}`, JSON.stringify(data));
+            showMessage('✓ Data saved successfully!', 'success');
+            updateDashboard();
+        }
+
+        function updateDashboard() {
+            const inputs = document.querySelectorAll('input[type="number"]');
+            let totalRsvps = 0, totalAttended = 0;
+
+            const chartData = { labels: [], rsvps: [], attended: [], noshows: [], noshowPcts: [] };
+
+            sessions.forEach((s, i) => {
+                const rsvp = parseInt(document.getElementById(`rsvp_${i}`).value) || 0;
+                const attended = parseInt(document.getElementById(`attended_${i}`).value) || 0;
+                const noshows = rsvp - attended;
+                const noshowPct = rsvp > 0 ? Math.round((noshows / rsvp) * 100) : 0;
+
+                totalRsvps += rsvp;
+                totalAttended += attended;
+
+                chartData.labels.push(`${s.day.slice(0, 3)} ${s.date}`);
+                chartData.rsvps.push(rsvp);
+                chartData.attended.push(attended);
+                chartData.noshows.push(noshows);
+                chartData.noshowPcts.push(noshowPct);
+
+                updateTableRow(i, rsvp, attended, noshows, noshowPct, s);
+            });
+
+            const totalNoshows = totalRsvps - totalAttended;
+            const avgNoshowPct = totalRsvps > 0 ? Math.round((totalNoshows / totalRsvps) * 100) : 0;
+
+            document.getElementById('totalRsvps').textContent = totalRsvps;
+            document.getElementById('totalAttended').textContent = totalAttended;
+            document.getElementById('totalNoshows').textContent = totalNoshows;
+            document.getElementById('avgNoshowPct').textContent = avgNoshowPct + '%';
+
+            updateCharts(chartData);
+            generateInsights(chartData, avgNoshowPct);
+        }
+
+        function updateTableRow(index, rsvp, attended, noshows, noshowPct, session) {
+            const tbody = document.getElementById('tableBody');
+            let row = tbody.querySelector(`tr[data-index="${index}"]`);
+            if (!row) {
+                row = document.createElement('tr');
+                row.setAttribute('data-index', index);
+                tbody.appendChild(row);
+            }
+
+            let status = '';
+            if (noshowPct <= 20) status = '<span class="status-best">✓ Good</span>';
+            else if (noshowPct <= 40) status = '<span class="status-warning">⚠ Moderate</span>';
+            else if (noshowPct <= 48) status = '<span class="status-worst">✗ Bad</span>';
+            else status = '<span class="status-worst">✗✗ Worst</span>';
+
+            row.innerHTML = `
+                <td>Sept ${session.date}</td>
+                <td>${session.title}</td>
+                <td>${session.day}</td>
+                <td>${rsvp}</td>
+                <td>${attended}</td>
+                <td>${noshows}</td>
+                <td>${noshowPct}%</td>
+                <td>${status}</td>
+            `;
+        }
+
+        function updateCharts(data) {
+            const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const textColor = isDark ? '#f0efec' : '#0b0b0b';
+            const gridColor = isDark ? 'rgba(255,255,255,0.10)' : 'rgba(11,11,11,0.10)';
+
+            // Attendance Chart
+            const ctx1 = document.getElementById('attendanceChart');
+            if (ctx1.chart) ctx1.chart.destroy();
+            ctx1.chart = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [
+                        { label: 'RSVPs', data: data.rsvps, backgroundColor: '#b3d9ff', borderRadius: 4 },
+                        { label: 'Attended', data: data.attended, backgroundColor: '#1f4e78', borderRadius: 4 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true } }, scales: { y: { beginAtZero: true, grid: { color: gridColor } } } }
+            });
+
+            // No-show Chart
+            const ctx2 = document.getElementById('noshowChart');
+            if (ctx2.chart) ctx2.chart.destroy();
+            ctx2.chart = new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'No-show %',
+                        data: data.noshowPcts,
+                        borderColor: '#f44336',
+                        backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                        borderWidth: 2.5,
+                        fill: true,
+                        pointRadius: 5,
+                        pointBackgroundColor: '#f44336',
+                        tension: 0.3
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true } }, scales: { y: { beginAtZero: true, max: 100, grid: { color: gridColor }, ticks: { callback: v => v + '%' } } } }
+            });
+        }
+
+        function generateInsights(data, avgNoshowPct) {
+            const worstIndex = data.noshowPcts.indexOf(Math.max(...data.noshowPcts));
+            const bestIndex = data.noshowPcts.indexOf(Math.min(...data.noshowPcts));
+
+            let insights = `
+                <div class="insight-item">
+                    <strong>📉 Worst performing:</strong> ${data.labels[worstIndex]} (${data.noshowPcts[worstIndex]}% no-show, only ${data.attended[worstIndex]} attended)
+                </div>
+                <div class="insight-item">
+                    <strong>📈 Best performing:</strong> ${data.labels[bestIndex]} (${data.noshowPcts[bestIndex]}% no-show, ${data.attended[bestIndex]} attended)
+                </div>
+                <div class="insight-item">
+                    <strong>🎯 Action:</strong> ${avgNoshowPct > 30 ? 'No-show rate is HIGH. Shorten sessions & send 24-hr reminders.' : 'No-show rate is acceptable. Maintain current approach.'}
+                </div>
+            `;
+            document.getElementById('insights').innerHTML = insights;
+        }
+
+        function resetForm() {
+            if (confirm('Reset all data for this week?')) {
+                sessions.forEach((s, i) => {
+                    document.getElementById(`rsvp_${i}`).value = '';
+                    document.getElementById(`attended_${i}`).value = '';
+                });
+                updateDashboard();
+            }
+        }
+
+        function exportToCSV() {
+            const weekDate = document.getElementById('weekDate').value;
+            let csv = 'Date,Session,Day,RSVPs,Attended,No-shows,No-show %\n';
+            const tbody = document.getElementById('tableBody');
+            tbody.querySelectorAll('tr').forEach(row => {
+                const cells = row.querySelectorAll('td');
+                csv += Array.from(cells).map((cell, i) => i === 7 ? '' : cell.textContent.trim()).join(',') + '\n';
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `attendance_${weekDate}.csv`;
+            a.click();
+        }
+
+        function showMessage(text, type) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.className = `message ${type}`;
+            msg.style.display = 'block';
+            setTimeout(() => { msg.style.display = 'none'; }, 3000);
+        }
+
+        // Initialize on load
+        window.addEventListener('load', () => {
+            document.getElementById('weekDate').valueAsDate = new Date();
+            
+            // Create input fields
+            const container = document.getElementById('sessionInputs');
+            sessions.forEach((s, i) => {
+                container.innerHTML += `
+                    <div class="input-group">
+                        <label>Sept ${s.date} (${s.day}) - ${s.title}</label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <input type="number" id="rsvp_${i}" placeholder="RSVPs" min="0">
+                            <input type="number" id="attended_${i}" placeholder="Attended" min="0">
+                        </div>
+                    </div>
+                `;
+            });
+            
+            loadWeek();
+        });
+    </script>
+</body>
+</html>
